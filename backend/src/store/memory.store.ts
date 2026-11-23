@@ -2,8 +2,8 @@
  * Stockage en mémoire du processus. Rien n'est persisté : à l'arrêt du serveur,
  * toutes les données sont perdues. C'est volontaire (démonstration pédagogique).
  */
-import { Global, Injectable, Module } from '@nestjs/common';
-import { Variant } from '../common/mlkem';
+import { Global, Injectable, Module } from "@nestjs/common";
+import { Variant } from "../common/mlkem";
 
 export interface UserRecord {
   username: string;
@@ -23,10 +23,17 @@ export interface MessageRecord {
   id: string;
   from: string;
   to: string;
-  kind: 'TEXT' | 'KEM_CIPHERTEXT';
-  body: string; // texte, ou c en base64 pour KEM_CIPHERTEXT
+  kind: "TEXT" | "KEM_CIPHERTEXT" | "SECURE_TEXT";
+  /** TEXT : texte clair. KEM_CIPHERTEXT : c en base64. SECURE_TEXT : texte chiffré en base64 (tag inclus). */
+  body: string;
+  /** KEM_CIPHERTEXT uniquement. */
   variant: Variant | null;
+  /** KEM_CIPHERTEXT : empreinte de ek. */
   ekFingerprint: string | null;
+  /** SECURE_TEXT uniquement : IV de 12 octets en base64. */
+  iv: string | null;
+  /** SECURE_TEXT uniquement : empreinte de la clé secrète utilisée. */
+  keyFingerprint: string | null;
   createdAt: string;
 }
 
