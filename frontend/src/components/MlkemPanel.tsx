@@ -3,12 +3,13 @@
  * le panneau correspondant. Toutes les opérations se font dans le navigateur.
  */
 import { useEffect, useState } from "react";
-import { api, type ConversationSummary } from "../lib/api";
+import { api } from "../lib/api";
+import { RecipientPicker } from "./RecipientPicker";
 import { fromBase64, toBase64 } from "../lib/base64";
 import { deletePair, listPairs, savePair, type StoredPair } from "../lib/keystore";
 import { CT_SIZES, VARIANTS, decaps, encaps, fingerprint, keygen, variantFromEkLength, type Variant } from "../lib/mlkem";
-import { Avatar, CopyButton, EmptyState, errText, formatWhen, Notice, Output, PasteField, type NoticeKind } from "./fields";
-import { IconArrowRight, IconChat, IconEye, IconEyeOff, IconKey, IconLock, IconSend, IconSpark, IconTrash, IconUnlock, IconX } from "./Icons";
+import { CopyButton, EmptyState, errText, formatWhen, Notice, Output, PasteField, type NoticeKind } from "./fields";
+import { IconChat, IconEye, IconEyeOff, IconKey, IconLock, IconSend, IconSpark, IconTrash, IconUnlock } from "./Icons";
 
 type Action = "generate" | "encapsulate" | "decapsulate";
 type Status = { kind: NoticeKind; text: string } | null;
@@ -19,7 +20,7 @@ const ACTIONS: { id: Action; title: string; hint: string; icon: typeof IconKey }
   { id: "decapsulate", title: "Décapsuler", hint: "Retrouver le secret à partir d'un texte reçu", icon: IconUnlock },
 ];
 
-export function MlkemPanel({ username }: { username: string }) {
+export function MlkemPanel({ username, onOpenChats }: { username: string; onOpenChats: () => void }) {
   const [action, setAction] = useState<Action>("generate");
   const [status, setStatus] = useState<Status>(null);
 
@@ -59,7 +60,7 @@ export function MlkemPanel({ username }: { username: string }) {
 
       <section className="card panel" role="tabpanel">
         {action === "generate" && <GeneratePanel username={username} onStatus={setStatus} />}
-        {action === "encapsulate" && <EncapsulatePanel onStatus={setStatus} />}
+        {action === "encapsulate" && <EncapsulatePanel onStatus={setStatus} onOpenChats={onOpenChats} />}
         {action === "decapsulate" && <DecapsulatePanel username={username} onStatus={setStatus} />}
       </section>
     </div>
@@ -181,15 +182,12 @@ interface EncapResult {
   variant: Variant;
 }
 
-function EncapsulatePanel({ onStatus }: { onStatus: (s: Status) => void }) {
+function EncapsulatePanel({ onStatus, onOpenChats }: { onStatus: (s: Status) => void; onOpenChats: () => void }) {
   const [ekInput, setEkInput] = useState("");
   const [result, setResult] = useState<EncapResult | null>(null);
-  const [picker, setPicker] = useState(false);
-  const [contacts, setContacts] = useState<ConversationSummary[]>([]);
 
   function encapsulate() {
     onStatus(null);
-    setPicker(false);
     try {
       let ek: Uint8Array;
       try {
@@ -207,15 +205,6 @@ function EncapsulatePanel({ onStatus }: { onStatus: (s: Status) => void }) {
     }
   }
 
-  async function openPicker() {
-    try {
-      setContacts(await api.conversations());
-      setPicker(true);
-    } catch (err) {
-      onStatus({ kind: "error", text: errText(err) });
-    }
-  }
-
   async function sendTo(to: string) {
     if (!result) return;
     try {
@@ -226,7 +215,6 @@ function EncapsulatePanel({ onStatus }: { onStatus: (s: Status) => void }) {
         variant: result.variant,
         ekFingerprint: result.fingerprint,
       });
-      setPicker(false);
       onStatus({ kind: "ok", text: `Texte encapsulé envoyé à ${to}.` });
     } catch (err) {
       onStatus({ kind: "error", text: errText(err) });
@@ -247,37 +235,8 @@ function EncapsulatePanel({ onStatus }: { onStatus: (s: Status) => void }) {
         <div className="stack">
           <Output label="Secret partagé (K)" value={result.K} />
           <Output label="Texte encapsulé (c)" value={result.c}>
-            <button className="btn btn-solid btn-sm" onClick={openPicker}>
-              <IconSend size={15} />
-              <span>Envoyer à</span>
-            </button>
+            <RecipientPicker label="Envoyer à" loadContacts={() => api.conversations()} onPick={sendTo} onOpenChats={onOpenChats} />
           </Output>
-
-          {picker && (
-            <div className="picker">
-              <div className="picker-head">
-                <strong>Choisir un destinataire</strong>
-                <button className="btn btn-ghost btn-icon" onClick={() => setPicker(false)} aria-label="Fermer">
-                  <IconX size={16} />
-                </button>
-              </div>
-              {contacts.length === 0 ? (
-                <p className="muted small">Aucune discussion pour l'instant. Démarrez-en une depuis l'onglet Discussions.</p>
-              ) : (
-                <ul className="picker-list">
-                  {contacts.map((c) => (
-                    <li key={c.username}>
-                      <button className="picker-item" onClick={() => sendTo(c.username)}>
-                        <Avatar name={c.username} size={30} />
-                        <span>{c.username}</span>
-                        <IconArrowRight size={16} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import { Avatar } from "./fields";
 import { ChatPanel } from "./ChatPanel";
 import { MlkemPanel } from "./MlkemPanel";
 import { IconChat, IconKey, IconLogout, Logo } from "./Icons";
+import { displayName } from "../lib/names";
 
 type Tab = "mlkem" | "chat";
 
@@ -53,7 +54,7 @@ export function Home({ username, onLogout }: { username: string; onLogout: () =>
         <div className="topbar-end">
           <div className="me">
             <Avatar name={username} size={32} />
-            <span>{username}</span>
+            <span>{displayName(username)}</span>
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onLogout} title="Se déconnecter" aria-label="Se déconnecter">
             <IconLogout size={18} />
@@ -61,7 +62,9 @@ export function Home({ username, onLogout }: { username: string; onLogout: () =>
         </div>
       </header>
 
-      <main className="content">{tab === "mlkem" ? <MlkemPanel username={username} /> : <ChatPanel username={username} />}</main>
+      <main className="content">
+        {tab === "mlkem" ? <MlkemPanel username={username} onOpenChats={() => setTab("chat")} /> : <ChatPanel username={username} />}
+      </main>
     </div>
   );
 }

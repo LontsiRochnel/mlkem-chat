@@ -5,12 +5,14 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, type ConversationSummary, type Message } from "../lib/api";
 import { fromBase64, toBase64 } from "../lib/base64";
+import { copyLater } from "../lib/clipboard";
 import { decryptText, encryptText, secretFingerprint } from "../lib/crypto";
 import { saveClear, getClearMap, getConversation, saveConversation, emptyConversation, listPairs, type ConversationSettings } from "../lib/keystore";
 import { decaps } from "../lib/mlkem";
 import { connectRealtime } from "../lib/socket";
 import { Avatar, CopyButton, EmptyState, errText, formatWhen, Notice, PasteField } from "./fields";
 import { IconArrowRight, IconChat, IconCheck, IconCopy, IconKey, IconLock, IconPlus, IconRefresh, IconSend, IconUnlock, IconUser, IconX } from "./Icons";
+import { displayName } from "../lib/names";
 
 /** Accepte une clé en base64 (44 caractères) ou en hexadécimal (64 caractères) : 32 octets dans les deux cas. */
 function parseKey(raw: string): Uint8Array {
@@ -198,9 +200,12 @@ export function ChatPanel({ username }: { username: string }) {
     if (!active) return;
     setError(null);
     try {
-      const info = await api.publicKey(active);
-      setContactKey(info.ek);
-      await navigator.clipboard.writeText(info.ek);
+      await copyLater(() =>
+        api.publicKey(active).then((info) => {
+          setContactKey(info.ek);
+          return info.ek;
+        }),
+      );
       setPkCopied(true);
       window.setTimeout(() => setPkCopied(false), 1600);
     } catch (err) {
@@ -398,7 +403,7 @@ export function ChatPanel({ username }: { username: string }) {
           <button className="confirm-chat" onClick={startChat} aria-label={`Discuter avec ${pending.name}`} title={`Discuter avec ${pending.name}`}>
             <Avatar name={pending.name} size={38} />
             <span className="confirm-text">
-              <strong>{pending.name}</strong>
+              <strong>{displayName(pending.name)}</strong>
               <small>{pending.hasKey ? "Clé publique disponible" : "Aucune clé publiée"}</small>
             </span>
             <span className="confirm-go">
@@ -416,7 +421,7 @@ export function ChatPanel({ username }: { username: string }) {
                 <button className={`contact ${c.username === active ? "is-active" : ""}`} onClick={() => setActive(c.username)}>
                   <Avatar name={c.username} size={38} />
                   <span className="contact-text">
-                    <strong>{c.username}</strong>
+                    <strong>{displayName(c.username)}</strong>
                     <small>
                       {c.lastMessageKind === "KEM_CIPHERTEXT" && <IconLock size={12} />}
                       {c.lastMessageKind === "SECURE_TEXT" && <IconLock size={12} />}
@@ -440,7 +445,7 @@ export function ChatPanel({ username }: { username: string }) {
               <div className="chat-identity">
                 <Avatar name={active} size={42} />
                 <div>
-                  <strong>{active}</strong>
+                  <strong>{displayName(active)}</strong>
                   <small className={contactKey ? "online" : "offline"}>
                     {contactKey ? "Clé publique disponible" : "Aucune clé publiée"}
                     {hasKey && settings?.keyFingerprint && <span className="fp"> · clé {settings.keyFingerprint.slice(0, 8)}</span>}
@@ -555,20 +560,12 @@ export function ChatPanel({ username }: { username: string }) {
                         </div>
                       )}
 
-                      {m.kind === "SECURE_TEXT" &&
-                        (clear[m.id] !== undefined ? (
-                          <>
-                            <p className="bubble-text">{clear[m.id]}</p>
-                            <span className="secure-badge">
-                              <IconLock size={12} />
-                              <span>Chiffré</span>
-                            </span>
-                          </>
-                        ) : (
-                          renderLocked(m)
-                        ))}
+                      {m.kind === "SECURE_TEXT" && (clear[m.id] !== undefined ? <p className="bubble-text">{clear[m.id]}</p> : renderLocked(m))}
 
-                      <time>{formatWhen(m.createdAt)}</time>
+                      <div className="bubble-foot">
+                        {m.kind === "SECURE_TEXT" && clear[m.id] !== undefined && <IconLock size={11} className="foot-lock" aria-label="Message chiffré" />}
+                        <time>{formatWhen(m.createdAt)}</time>
+                      </div>
                     </div>
                   </div>
                 );

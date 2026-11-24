@@ -1,7 +1,7 @@
 /** Composants communs : boutons, champs avec Coller, sorties avec Copier, notifications. */
 import { useState, type ReactNode } from "react";
 import { IconAlert, IconCheck, IconCopy, IconInfo, IconPaste } from "./Icons";
-
+import { copyText } from "../lib/clipboard";
 export function errText(err: unknown): string {
   return err instanceof Error ? err.message : "Erreur inconnue.";
 }
@@ -46,7 +46,7 @@ export function CopyButton({
       disabled={disabled}
       title={title ?? "Copier dans le presse-papiers"}
       onClick={async () => {
-        await navigator.clipboard.writeText(text);
+        await copyText(text);
         setDone(true);
         window.setTimeout(() => setDone(false), 1600);
       }}
